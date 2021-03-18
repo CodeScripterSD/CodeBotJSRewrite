@@ -12,11 +12,15 @@ module.exports = async (client, id, text, reactions = []) => {
     channel.messages.fetch().then((messages) => {
         if (messages.size === 0) {
             //Send a new message
-            channel.send(text).then(message => {
+            channel.send(text).then((message) => {
                 addReactions(message, reactions)
             })
         } else {
-            //editing existing
+            //Edit existing message
+            for (const message of messages) {
+                message[1].edit(text)
+                addReactions(message[1], reactions)
+            }
         }
     })
 }
