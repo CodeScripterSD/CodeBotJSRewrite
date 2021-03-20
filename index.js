@@ -1,103 +1,159 @@
 const Discord = require('discord.js')
+const fsLibrary = require('fs')
 const client = new Discord.Client()
 
 const config = require('./config.json')
-const privateMessage = require('./private-message')
 const command = require('./command')
-const firstMessage = require('./first-message')
+const roleClaim = require('./role-claim')
+const poll = require('./poll')
+const welcome = require('./welcome')
+const memberCount = require('./member-count')
+const sendMessage = require('./send-message')
+
+const prefix = config.prefix
+
+const logFile = fsLibrary.createWriteStream('./logs/chat.txt', {
+    flasg: 'a', //flags: 'a' preserved old data
+})
 
 client.on('ready', () => {
     console.log('The client is ready!')
 
-    firstMessage(client, '805600802080030754', 'unfinished cuz am lazy', ['🗡️'])
+    roleClaim(client)
+    poll(client)
+    welcome(client)
+    memberCount(client)
 
-    command(client, 'watch', message => {
-        if (message.member.roles.cache.some(role => role.name === 'Bot Operator')) {
-            const content = message.content.replace('!watch ', '')
+    client.user.setPresence({
+        activity: {
+            name: `commands | ${prefix}help`,
+            type: 3
+        }
+    })
 
-            client.user.setPresence({
-                activity: {
-                    name: content,
-                    type: 3
-                }
+    command(client, 'ban', message => {
+        const { member, mentions, channel } = message
+        const tag = `<@${member.id}>`
+
+        if (member.hasPermission('BAN_MEMBERS') || member.hasPermission('ADMINISTRATOR')) {
+            const target = mentions.users.first()
+            if (!target) {
+                sendMessage(channel, `${tag} Please specify someone to ban.`, 5)
+                return
+            }
+            const targetMember = message.guild.members.cache.get(target.id)
+            if (target.id === member.id) {
+                sendMessage(channel, `${tag} You cannot ban yourself!`, 5)
+            }
+            else if (!targetMember.hasPermission('ADMINISTRATOR') && !targetMember.roles.cache.has('822279318204841995')) {
+                targetMember.ban()
+                sendMessage(channel, `${tag} That user has been banned.`, -1)
+            }
+            else if (targetMember.hasPermission('ADMINISTRATOR')) {
+                sendMessage(channel, `${tag} I cannot ban an administrator.`, 5)
+            }
+            else if (targetMember.roles.cache.has('822279318204841995')) {
+                sendMessage(channel, `${tag} I cannot ban someone in the Protection Program!`, 5)
+            }
+        } else {
+            sendMessage(channel, `<@${member.id}> You do not have permission to run this command.`, 5)
+        }
+    })
+
+    command(client, 'kick', message => {
+        const { member, mentions, channel } = message
+        const tag = `<@${member.id}>`
+
+        if (
+            member.hasPermission('KICK_MEMBERS') ||
+            member.hasPermission('ADMINISTRATOR')
+        ) {
+            const target = mentions.users.first()
+            if (!target) return;
+            const targetMember = message.guild.members.cache.get(target.id)
+            if (target.id === member.id) {
+                sendMessage(channel, `${tag} You cannot kick yourself!`, 5)
+            }
+            else if (!targetMember.hasPermission('ADMINISTRATOR') && !targetMember.roles.cache.has('822279318204841995')) {
+                targetMember.kick()
+                sendMessage(channel, `${tag} That user has been kicked.`, -1)
+            }
+            else if (targetMember.hasPermission('ADMINISTRATOR')) {
+                sendMessage(channel, `${tag} I cannot kick an administrator.`, 5)
+            }
+            else if (targetMember.roles.cache.has('822279318204841995')) {
+                sendMessage(channel, `${tag} I cannot kick someone in the Protection Program!`, 5)
+            }
+             else {
+                sendMessage(channel, `${tag} Please specify someone to kick.`, 5)
+            }
+        } else {
+            sendMessage(channel, `<@${member.id}> You do not have permission to run this command.`, 5)
+        }
+    })
+
+    command(client, 'serverinfo', (message) => {
+        const { guild, channel } = message
+
+        const { name, region, memberCount, owner, afkTimeout } = guild
+        const icon = guild.iconURL()
+
+        const embed = new Discord.MessageEmbed()
+            .setTitle(`Server info for "${name}`)
+            .setThumbnail(icon)
+            .addFields({
+                name: 'Region',
+                value: region,
+            },{
+                name: 'Members',
+                value: memberCount,
+            },{
+                name: 'Owner',
+                value: owner.user.tag,
+            },{
+                name: 'AFK Timeout',
+                value: afkTimeout / 60 + ' minutes',
+            })
+        
+            sendMessage(channel, embed, -1)
+    })
+
+    command(client, 'help', message => {
+        const { channel } = message
+        const icon = message.guild.iconURL()
+        const embed = new Discord.MessageEmbed().setTitle('Help').setThumbnail(icon)
+
+        if (message.member.hasPermission('BAN_MEMBERS')) {
+            embed.addFields({
+                name: 'Moderation:',
+                value: `**${prefix}ban** <member.mention>\n**${prefix}kick** <member.mention>`,
+            },
+            {
+                name: 'Generic',
+                value: `**${prefix}serverinfo**`
+            })
+        }
+        else if (message.member.hasPermission('KICK_MEMBERS')) {
+            embed.addFields({
+                name: 'Moderation:',
+                value: `**${prefix}kick** <member.mention>`,
+            },
+            {
+                name: 'Generic',
+                value: `**${prefix}serverinfo**`
+            })
+        } else {
+            embed.addFields({
+                name: 'Generic',
+                value: `**${prefix}serverinfo**`
             })
         }
         
+        sendMessage(channel, embed, -1)
     })
 
-    command(client, 'play', message => {
-        if (message.member.roles.cache.some(role => role.name === 'Bot Operator')) {
-            const content = message.content.replace('!play ', '')
-
-            client.user.setPresence({
-                activity: {
-                    name: content,
-                    type: 1
-                }
-            })
-        }
-        
+    client.on('message', message => {
+        logFile.write(`In ${message.channel.name}, ${message.author.tag} said: ${message.content}\r\n`)
     })
-
-    command(client, 'ctext', (message) => {
-        if (message.member.roles.cache.some(role => role.name === 'Bot Operator')) {
-            const name = message.content.replace('!ctext ', '')
-
-            message.guild.channels
-                .create(name, {
-                    type: 'text',
-                })
-        }
-    })
-
-    command(client, 'cvoice', (message) => {
-        if (message.member.roles.cache.some(role => role.name === 'Bot Operator')) {
-            const name = message.content.replace('!cvoice ', '')
-
-            message.guild.channels
-                .create(name, {
-                    type: 'voice',
-                })
-                .then((channel) => {
-                    channel.setUserLimit(10)
-                })
-        }
-    })
-
-    command(client, 'datapacks', message => {
-        const embed = new Discord.MessageEmbed().setTitle('Datapacks')
-        message.channel.send(embed)
-    })
-
-
 })
-
-client.on('guildMemberAdd', member => {
-    if (member.bot) return;
-    const channel = member.guild.channels.cache.find(ch => ch.name === '👋welcome-and-goodbye')
-
-    if (!channel) return;
-
-    channel.send(`Welcome to **${member.guild.name}**, ${member}`)
-})
-
-client.on('guildMemberRemove', member => {
-    if (member.bot) return;
-    const channel = member.guild.channels.cache.find(ch => ch.name === '👋welcome-and-goodbye')
-
-    if (!channel) return;
-
-    channel.send(`**${member.displayName}** has left the server`)
-})
-
-client.on('message', (message) => {
-    if (message.author.bot) return;
-    if (message.content === '$argument-status') {
-        message.channel.send('Mythic Mac and Chief seem to be tied at 3 points each. The reading states that the argument is very likely to last until the server goes public. More updates coming out soon!')
-    }
-    if (message.content.includes('69')) {
-        message.channel.send('69? Nice.')
-    }
-})
-
 client.login(config.token)
