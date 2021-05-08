@@ -1,2 +1,4 @@
 config.json
 /logs/*.txt
+/node_modules/*
+package-lock.json

@@ -27,7 +27,6 @@ module.exports = client => {
             await message.delete()
 
             const fetched = await message.channel.messages.fetch({ limit: 1})
-            console.log(fetched)
             if (fetched && fetched.first()) {
                 fetched.first().reactions.removeAll()
             }

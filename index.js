@@ -1,5 +1,4 @@
 const Discord = require('discord.js')
-const fsLibrary = require('fs')
 const client = new Discord.Client()
 
 const config = require('./config.json')
@@ -9,16 +8,25 @@ const poll = require('./poll')
 const welcome = require('./welcome')
 const memberCount = require('./member-count')
 const sendMessage = require('./send-message')
+const mongo = require('./mongo')
+const logs = require('./logFiles')
 
 const prefix = config.prefix
 
-const logFile = fsLibrary.createWriteStream('./logs/chat.txt', {
-    flasg: 'a', //flags: 'a' preserved old data
-})
-
-client.on('ready', () => {
+client.on('ready', async () => {
     console.log('The client is ready!')
 
+    await mongo().then(mongoose => {
+        try {
+            //try some code
+            console.log('Connected to mongo!')
+         } finally {
+            //will always run
+            mongoose.connection.close()
+        }
+    })
+
+    logs(client)
     roleClaim(client)
     poll(client)
     welcome(client)
@@ -44,19 +52,24 @@ client.on('ready', () => {
             const targetMember = message.guild.members.cache.get(target.id)
             if (target.id === member.id) {
                 sendMessage(channel, `${tag} You cannot ban yourself!`, 5)
+                return
             }
-            else if (!targetMember.hasPermission('ADMINISTRATOR') && !targetMember.roles.cache.has('822279318204841995')) {
+            else if (!targetMember.hasPermission('ADMINISTRATOR') && !targetMember.roles.cache.has('805600802063515667')) {
                 targetMember.ban()
-                sendMessage(channel, `${tag} That user has been banned.`, -1)
+                sendMessage(channel, `${tag} That user has been banned.`)
+                return
             }
             else if (targetMember.hasPermission('ADMINISTRATOR')) {
                 sendMessage(channel, `${tag} I cannot ban an administrator.`, 5)
+                return
             }
-            else if (targetMember.roles.cache.has('822279318204841995')) {
-                sendMessage(channel, `${tag} I cannot ban someone in the Protection Program!`, 5)
+            else if (targetMember.roles.cache.has('805600802063515667')) {
+                sendMessage(channel, `${tag} I cannot ban a moderator!`, 5)
+                return
             }
         } else {
             sendMessage(channel, `<@${member.id}> You do not have permission to run this command.`, 5)
+            return
         }
     })
 
@@ -69,26 +82,35 @@ client.on('ready', () => {
             member.hasPermission('ADMINISTRATOR')
         ) {
             const target = mentions.users.first()
-            if (!target) return;
+            if (!target) {
+                sendMessage(channel, `${tag} Please specify someone to kick.`, 5)
+                return
+            }
             const targetMember = message.guild.members.cache.get(target.id)
             if (target.id === member.id) {
                 sendMessage(channel, `${tag} You cannot kick yourself!`, 5)
+                return
             }
-            else if (!targetMember.hasPermission('ADMINISTRATOR') && !targetMember.roles.cache.has('822279318204841995')) {
+            else if (!targetMember.hasPermission('ADMINISTRATOR') && !targetMember.roles.cache.has('805600802063515667')) {
                 targetMember.kick()
-                sendMessage(channel, `${tag} That user has been kicked.`, -1)
+                sendMessage(channel, `${tag} That user has been kicked.`)
+                return
             }
             else if (targetMember.hasPermission('ADMINISTRATOR')) {
                 sendMessage(channel, `${tag} I cannot kick an administrator.`, 5)
+                return
             }
-            else if (targetMember.roles.cache.has('822279318204841995')) {
-                sendMessage(channel, `${tag} I cannot kick someone in the Protection Program!`, 5)
+            else if (targetMember.roles.cache.has('805600802063515667')) {
+                sendMessage(channel, `${tag} I cannot kick a moderator!`, 5)
+                return
             }
              else {
                 sendMessage(channel, `${tag} Please specify someone to kick.`, 5)
+                return
             }
         } else {
             sendMessage(channel, `<@${member.id}> You do not have permission to run this command.`, 5)
+            return
         }
     })
 
@@ -115,7 +137,7 @@ client.on('ready', () => {
                 value: afkTimeout / 60 + ' minutes',
             })
         
-            sendMessage(channel, embed, -1)
+            sendMessage(channel, embed)
     })
 
     command(client, 'help', message => {
@@ -127,33 +149,20 @@ client.on('ready', () => {
             embed.addFields({
                 name: 'Moderation:',
                 value: `**${prefix}ban** <member.mention>\n**${prefix}kick** <member.mention>`,
-            },
-            {
-                name: 'Generic',
-                value: `**${prefix}serverinfo**`
             })
         }
         else if (message.member.hasPermission('KICK_MEMBERS')) {
             embed.addFields({
                 name: 'Moderation:',
                 value: `**${prefix}kick** <member.mention>`,
-            },
-            {
-                name: 'Generic',
-                value: `**${prefix}serverinfo**`
-            })
-        } else {
-            embed.addFields({
-                name: 'Generic',
-                value: `**${prefix}serverinfo**`
             })
         }
+        embed.addFields({
+            name: 'Generic',
+            value: `**${prefix}serverinfo**\n**${prefix}poll**\n**${prefix}unpoll**`
+        })
         
-        sendMessage(channel, embed, -1)
-    })
-
-    client.on('message', message => {
-        logFile.write(`In ${message.channel.name}, ${message.author.tag} said: ${message.content}\r\n`)
+        sendMessage(channel, embed)
     })
 })
 client.login(config.token)
