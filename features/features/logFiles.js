@@ -16,7 +16,7 @@ const messageDeleted = fsLibrary.createWriteStream('./logs/deletedMessage.txt', 
 // EVENT LISTENERS
 // ALL LISTENERS MUST HAVE THEIR OWN timeNow OBJECTS, OTHERWISE TIME WILL MATCH WHEN THE BOT STARTED AND NOT RETURN AN ACCURATE TIME
 
-module.exports = client => {
+module.exports = (client) => {
     client.on('message', (message) => {
         dateTime = new Date();
 

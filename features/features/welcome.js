@@ -1,10 +1,10 @@
-const mongo = require('./mongo')
-const command = require('./command')
-const sendMessage = require('./send-message')
-const welcomeSchema = require('./schemas/welcome-schema')
-const goodbyeSchema = require('./schemas/goodbye-schema')
+const mongo = require('@util/mongo')
+const command = require('@util/command')
+const sendMessage = require('@util/send-message')
+const welcomeSchema = require('@schemas/welcome-schema')
+const goodbyeSchema = require('@schemas/goodbye-schema')
 
-module.exports = client => {
+module.exports = (client) => {
     //setwelcome <message>
     const cache = {} // guildId: [channelId, text]
     const leaveCache = {} 
@@ -22,7 +22,7 @@ module.exports = client => {
         const split = text.split(' ')
 
         if (split.length < 2) {
-            sendMessageI(channel, 'Please provide a welcome message', 5)
+            sendMessage(channel, 'Please provide a welcome message', 5)
             return
         }
 
